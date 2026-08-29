@@ -2,6 +2,11 @@ name: Self-hosted desktop clients
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/self-hosted-account-address-book
+    paths:
+      - ".github/workflows/self-hosted-desktop-build.yml"
 
 permissions:
   contents: read
