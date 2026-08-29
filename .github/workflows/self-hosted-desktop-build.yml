@@ -1,0 +1,17 @@
+name: Self-hosted desktop clients
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-desktop-clients:
+    uses: ./.github/workflows/flutter-build.yml
+    secrets: inherit
+    with:
+      upload-artifact: true
+      upload-tag: "self-hosted"
+      publish-release: false
+      desktop-only: true
