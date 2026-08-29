@@ -33,10 +33,10 @@ jobs:
         run: cargo fmt --manifest-path self-hosted/account-server/Cargo.toml -- --check
 
       - name: Run tests
-        run: cargo test --manifest-path self-hosted/account-server/Cargo.toml --locked
+        run: cargo test --manifest-path self-hosted/account-server/Cargo.toml
 
       - name: Build release binary
-        run: cargo build --release --manifest-path self-hosted/account-server/Cargo.toml --locked
+        run: cargo build --release --manifest-path self-hosted/account-server/Cargo.toml
 
       - name: Package binary
         run: |

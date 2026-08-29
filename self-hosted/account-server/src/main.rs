@@ -164,6 +164,10 @@ async fn main() -> Result<()> {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| anyhow::anyhow!("failed to install the rustls ring crypto provider"))?;
+
     let config = Config::from_env()?;
     require_file(&config.tls_cert)?;
     require_file(&config.tls_key)?;
