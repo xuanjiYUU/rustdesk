@@ -31,8 +31,8 @@ impl Database {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("failed to create {}", parent.display()))?;
         }
-        let connection = Connection::open(path)
-            .with_context(|| format!("failed to open {}", path.display()))?;
+        let connection =
+            Connection::open(path).with_context(|| format!("failed to open {}", path.display()))?;
         connection
             .execute_batch(include_str!("../migrations/0001_init.sql"))
             .context("database migration failed")?;
@@ -308,12 +308,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn update_peer(
-        &self,
-        guid: &str,
-        update: PeerUpdate,
-        crypto: &Crypto,
-    ) -> Result<bool> {
+    pub fn update_peer(&self, guid: &str, update: PeerUpdate, crypto: &Crypto) -> Result<bool> {
         let connection = self.connection()?;
         let existing = connection
             .query_row(
@@ -419,9 +414,8 @@ impl Database {
             params![guid, old, new],
         )?;
         if changed > 0 {
-            let mut statement = transaction.prepare(
-                "SELECT peer_id, tags_json FROM peers WHERE address_book_guid = ?1",
-            )?;
+            let mut statement = transaction
+                .prepare("SELECT peer_id, tags_json FROM peers WHERE address_book_guid = ?1")?;
             let rows = statement.query_map([guid], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?;
@@ -461,9 +455,8 @@ impl Database {
                 params![guid, name],
             )?;
         }
-        let mut statement = transaction.prepare(
-            "SELECT peer_id, tags_json FROM peers WHERE address_book_guid = ?1",
-        )?;
+        let mut statement = transaction
+            .prepare("SELECT peer_id, tags_json FROM peers WHERE address_book_guid = ?1")?;
         let rows = statement.query_map([guid], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;

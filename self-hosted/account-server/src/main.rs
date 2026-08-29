@@ -72,10 +72,7 @@ impl Config {
             )
             .into(),
             master_key,
-            global_book_name: env_value(
-                "RUSTDESK_ACCOUNT_GLOBAL_BOOK_NAME",
-                "Shared devices",
-            ),
+            global_book_name: env_value("RUSTDESK_ACCOUNT_GLOBAL_BOOK_NAME", "Shared devices"),
             allow_registration: parse_bool(&env_value(
                 "RUSTDESK_ACCOUNT_ALLOW_REGISTRATION",
                 "true",
@@ -114,17 +111,11 @@ fn app(state: AppState) -> Router {
         .route("/api/logout", post(handlers::logout))
         .route("/api/ab/settings", post(handlers::ab_settings))
         .route("/api/ab/personal", post(handlers::personal_ab))
-        .route(
-            "/api/ab/shared/profiles",
-            post(handlers::shared_profiles),
-        )
+        .route("/api/ab/shared/profiles", post(handlers::shared_profiles))
         .route("/api/ab/peers", post(handlers::list_peers))
         .route("/api/ab/tags/{guid}", post(handlers::list_tags))
         .route("/api/ab/peer/add/{guid}", post(handlers::add_peer))
-        .route(
-            "/api/ab/peer/update/{guid}",
-            put(handlers::update_peer),
-        )
+        .route("/api/ab/peer/update/{guid}", put(handlers::update_peer))
         .route("/api/ab/peer/{guid}", delete(handlers::delete_peers))
         .route("/api/ab/tag/add/{guid}", post(handlers::add_tag))
         .route("/api/ab/tag/update/{guid}", put(handlers::update_tag))

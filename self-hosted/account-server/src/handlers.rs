@@ -141,7 +141,8 @@ pub async fn login(
     Json(request): Json<LoginRequest>,
 ) -> ApiResult<Json<LoginResponse>> {
     let username = request.username.trim();
-    let Some((user, password_hash)) = state.database.login_record(username).map_err(internal)? else {
+    let Some((user, password_hash)) = state.database.login_record(username).map_err(internal)?
+    else {
         return Err(ApiError::unauthorized("Invalid username or password"));
     };
     if !verify_password(&request.password, &password_hash) {
@@ -158,10 +159,7 @@ pub async fn current_user(
     Ok(Json(UserPayload::from(&user)))
 }
 
-pub async fn logout(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> ApiResult<StatusCode> {
+pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<StatusCode> {
     let (_, token) = authenticated(&state, &headers)?;
     state.database.delete_session(&token).map_err(internal)?;
     Ok(StatusCode::OK)
@@ -228,7 +226,11 @@ pub async fn add_peer(
 ) -> ApiResult<StatusCode> {
     let (user, kind) = require_book(&state, &headers, &guid).await?;
     validate_peer_id(&peer.id)?;
-    if state.database.peer_exists(&guid, &peer.id).map_err(internal)? {
+    if state
+        .database
+        .peer_exists(&guid, &peer.id)
+        .map_err(internal)?
+    {
         return Err(ApiError::conflict("RustDesk ID already exists"));
     }
     let password = if kind == BookKind::Global {
@@ -344,6 +346,9 @@ pub async fn delete_tags(
     Json(names): Json<Vec<String>>,
 ) -> ApiResult<StatusCode> {
     require_book(&state, &headers, &guid).await?;
-    state.database.delete_tags(&guid, &names).map_err(internal)?;
+    state
+        .database
+        .delete_tags(&guid, &names)
+        .map_err(internal)?;
     Ok(StatusCode::OK)
 }
