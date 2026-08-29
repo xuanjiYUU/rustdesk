@@ -7,6 +7,7 @@ on:
       - feat/self-hosted-account-address-book
     paths:
       - ".github/workflows/self-hosted-desktop-build.yml"
+      - ".github/workflows/flutter-build.yml"
 
 jobs:
   build-desktop-clients:
