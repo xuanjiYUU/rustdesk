@@ -177,6 +177,23 @@ class LoginRequest {
   }
 }
 
+class RegisterRequest {
+  final String username;
+  final String password;
+  final String displayName;
+
+  RegisterRequest(
+      {required this.username,
+      required this.password,
+      required this.displayName});
+
+  Map<String, dynamic> toJson() => {
+        'username': username,
+        'password': password,
+        'display_name': displayName,
+      };
+}
+
 class LoginResponse {
   String? access_token;
   String? type;

@@ -1,0 +1,22 @@
+[Unit]
+Description=RustDesk ID and rendezvous server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rustdesk-selfhost
+Group=rustdesk-selfhost
+WorkingDirectory=/opt/rustdesk-selfhost/server/data
+Environment=HOME=/opt/rustdesk-selfhost/server/data
+ExecStart=/opt/rustdesk-selfhost/server/bin/hbbs -p 21116 -r 223.105.144.22:21117 -k _
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/rustdesk-selfhost/server/data
+
+[Install]
+WantedBy=multi-user.target

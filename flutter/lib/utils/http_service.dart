@@ -4,6 +4,7 @@ import 'package:flutter_hbb/consts.dart';
 import 'package:http/http.dart' as http;
 import '../models/platform_model.dart';
 import 'package:flutter_hbb/common.dart';
+import 'custom_tls_client.dart';
 export 'package:http/http.dart' show Response;
 
 enum HttpMethod { get, post, put, delete }
@@ -57,7 +58,7 @@ class HttpService {
     Map<String, String>? headers,
     dynamic body,
   }) async {
-    final client = http.Client();
+    final client = await createSelfHostedHttpClient();
     try {
       var response = http.Response('', 400);
 

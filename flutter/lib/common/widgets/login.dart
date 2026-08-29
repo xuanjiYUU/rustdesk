@@ -985,6 +985,15 @@ Future<bool?> _openLoginDialog() async {
             onLogin: onLogin,
             userFocusNode: userFocusNode,
           ),
+          TextButton(
+            onPressed: curOP.value.isEmpty && !isInProgress
+                ? () {
+                    close(null);
+                    Future.microtask(registrationDialog);
+                  }
+                : null,
+            child: const Text('Register'),
+          ),
           thirdAuthWidget(),
         ],
       ),
@@ -998,6 +1007,114 @@ Future<bool?> _openLoginDialog() async {
   }
 
   return res;
+}
+
+Future<bool?> registrationDialog() async {
+  final username = TextEditingController();
+  final displayName = TextEditingController();
+  final password = TextEditingController();
+  final confirmPassword = TextEditingController();
+  String? errorText;
+  var isInProgress = false;
+
+  final result = await gFFI.dialogManager.show<bool>(
+    (setState, close, context) {
+      onRegister() async {
+        if (isInProgress) return;
+        final normalizedUsername = username.text.trim();
+        if (normalizedUsername.isEmpty) {
+          setState(() => errorText = translate('Username missed'));
+          return;
+        }
+        if (password.text.isEmpty) {
+          setState(() => errorText = translate('Password missed'));
+          return;
+        }
+        if (password.text != confirmPassword.text) {
+          setState(() => errorText = 'Passwords do not match');
+          return;
+        }
+
+        setState(() {
+          isInProgress = true;
+          errorText = null;
+        });
+        try {
+          final response = await gFFI.userModel.register(RegisterRequest(
+            username: normalizedUsername,
+            password: password.text,
+            displayName: displayName.text.trim(),
+          ));
+          if (response.type != HttpType.kAuthResTypeToken ||
+              response.access_token == null) {
+            throw RequestException(0, 'Invalid registration response');
+          }
+          await bind.mainSetLocalOption(
+              key: 'access_token', value: response.access_token!);
+          await bind.mainSetLocalOption(
+              key: 'user_info', value: jsonEncode(response.user ?? {}));
+          close(true);
+        } on RequestException catch (error) {
+          setState(() {
+            errorText = error.cause;
+            isInProgress = false;
+          });
+        } catch (error) {
+          setState(() {
+            errorText = error.toString();
+            isInProgress = false;
+          });
+        }
+      }
+
+      Widget input(TextEditingController controller, String label,
+          {bool obscureText = false}) {
+        return TextField(
+          controller: controller,
+          obscureText: obscureText,
+          enabled: !isInProgress,
+          decoration: InputDecoration(labelText: label),
+          onSubmitted: (_) => onRegister(),
+        );
+      }
+
+      return CustomAlertDialog(
+        title: const Text('Create account'),
+        contentBoxConstraints: const BoxConstraints(minWidth: 400),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            input(username, translate('Username')),
+            input(displayName, 'Display name (optional)'),
+            input(password, translate('Password'), obscureText: true),
+            input(confirmPassword, 'Confirm password', obscureText: true),
+            if (errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(errorText!,
+                    style: const TextStyle(color: Colors.red)),
+              ),
+            if (isInProgress)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: LinearProgressIndicator(),
+              ),
+          ],
+        ),
+        onCancel: () => close(false),
+        onSubmit: onRegister,
+      );
+    },
+  );
+
+  username.dispose();
+  displayName.dispose();
+  password.dispose();
+  confirmPassword.dispose();
+  if (result == true) {
+    await UserModel.updateOtherModels();
+  }
+  return result;
 }
 
 Future<bool?> verificationCodeDialog(

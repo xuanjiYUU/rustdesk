@@ -2141,7 +2141,35 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+fn apply_self_hosted_defaults() {
+    const ID_SERVER: &str = "223.105.144.22:21116";
+    const RELAY_SERVER: &str = "223.105.144.22:21117";
+    const API_SERVER: &str = "https://223.105.144.22:21114";
+    const SERVER_KEY: &str = "cshgJ2un1kNFYPSlnMYpimvUoxLMA1dlGaX6SkfxoEk=";
+
+    *config::PROD_RENDEZVOUS_SERVER.write().unwrap() = ID_SERVER.to_owned();
+    let mut settings = config::OVERWRITE_SETTINGS.write().unwrap();
+    settings.insert(
+        keys::OPTION_CUSTOM_RENDEZVOUS_SERVER.to_owned(),
+        ID_SERVER.to_owned(),
+    );
+    settings.insert(keys::OPTION_RELAY_SERVER.to_owned(), RELAY_SERVER.to_owned());
+    settings.insert(keys::OPTION_API_SERVER.to_owned(), API_SERVER.to_owned());
+    settings.insert(keys::OPTION_KEY.to_owned(), SERVER_KEY.to_owned());
+    settings.insert(
+        keys::OPTION_ALLOW_INSECURE_TLS_FALLBACK.to_owned(),
+        "N".to_owned(),
+    );
+    drop(settings);
+
+    config::BUILTIN_SETTINGS.write().unwrap().insert(
+        keys::OPTION_ALLOW_HTTPS_21114.to_owned(),
+        "Y".to_owned(),
+    );
+}
+
 pub fn load_custom_client() {
+    apply_self_hosted_defaults();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());

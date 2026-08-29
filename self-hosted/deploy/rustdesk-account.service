@@ -1,0 +1,21 @@
+[Unit]
+Description=RustDesk self-hosted account and shared address book API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rustdesk-selfhost
+Group=rustdesk-selfhost
+EnvironmentFile=/opt/rustdesk-selfhost/account/account.env
+ExecStart=/opt/rustdesk-selfhost/account/rustdesk-account-server
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/rustdesk-selfhost/account/data
+
+[Install]
+WantedBy=multi-user.target

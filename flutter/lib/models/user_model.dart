@@ -216,6 +216,28 @@ class UserModel {
     return getLoginResponseFromAuthBody(body);
   }
 
+  Future<LoginResponse> register(RegisterRequest registerRequest) async {
+    final url = await bind.mainGetApiServer();
+    final resp = await http.post(Uri.parse('$url/api/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(registerRequest.toJson()));
+
+    final Map<String, dynamic> body;
+    try {
+      body = jsonDecode(decode_http_response(resp));
+    } catch (e) {
+      if (resp.statusCode != 200) {
+        BotToast.showText(
+            contentColor: Colors.red, text: 'HTTP ${resp.statusCode}');
+      }
+      rethrow;
+    }
+    if (resp.statusCode != 200 || body['error'] != null) {
+      throw RequestException(resp.statusCode, body['error'] ?? '');
+    }
+    return getLoginResponseFromAuthBody(body);
+  }
+
   LoginResponse getLoginResponseFromAuthBody(Map<String, dynamic> body) {
     final LoginResponse loginResponse;
     try {

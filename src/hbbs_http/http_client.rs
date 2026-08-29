@@ -17,6 +17,16 @@ macro_rules! configure_http_client {
         // https://github.com/rustdesk/rustdesk/issues/11569
         // https://docs.rs/reqwest/latest/reqwest/struct.ClientBuilder.html#method.no_proxy
         let mut builder = $builder.no_proxy();
+        match reqwest::Certificate::from_pem(include_bytes!(
+            "../../flutter/assets/self_hosted_ca.pem"
+        )) {
+            Ok(certificate) => {
+                builder = builder.add_root_certificate(certificate);
+            }
+            Err(error) => {
+                hbb_common::log::error!("Failed to load self-hosted CA: {}", error);
+            }
+        }
 
         match $tls_type {
             TlsType::Plain => {}
