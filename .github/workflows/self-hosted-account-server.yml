@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   test-and-build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -33,10 +33,10 @@ jobs:
         run: cargo fmt --manifest-path self-hosted/account-server/Cargo.toml -- --check
 
       - name: Run tests
-        run: cargo test --manifest-path self-hosted/account-server/Cargo.toml
+        run: cargo test --manifest-path self-hosted/account-server/Cargo.toml --locked
 
       - name: Build release binary
-        run: cargo build --release --manifest-path self-hosted/account-server/Cargo.toml
+        run: cargo build --release --manifest-path self-hosted/account-server/Cargo.toml --locked
 
       - name: Package binary
         run: |
