@@ -4,7 +4,7 @@ version = "1.4.9"
 authors = ["rustdesk <info@rustdesk.com>"]
 edition = "2021"
 build= "build.rs"
-description = "RustDesk Remote Desktop"
+description = "感维科技remoteDesk"
 default-run = "rustdesk"
 rust-version = "1.75"
 
@@ -217,9 +217,9 @@ exclude = ["vdi/host"]
 libxdo-sys = { path = "libs/libxdo-sys-stub" }
 
 [package.metadata.winres]
-LegalCopyright = "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved."
-ProductName = "RustDesk"
-FileDescription = "RustDesk Remote Desktop"
+LegalCopyright = "Copyright © 2026 感维科技. All rights reserved."
+ProductName = "感维科技remoteDesk"
+FileDescription = "感维科技remoteDesk"
 OriginalFilename = "rustdesk.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]

@@ -8,6 +8,14 @@ on:
     paths:
       - ".github/workflows/self-hosted-desktop-build.yml"
       - ".github/workflows/flutter-build.yml"
+      - "Cargo.toml"
+      - "flutter/lib/**"
+      - "flutter/linux/**"
+      - "flutter/macos/**"
+      - "flutter/windows/**"
+      - "flatpak/com.rustdesk.RustDesk.metainfo.xml"
+      - "res/rustdesk.desktop"
+      - "res/rustdesk-link.desktop"
 
 permissions:
   contents: write
