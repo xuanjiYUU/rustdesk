@@ -397,6 +397,13 @@ jobs:
           mv $msi.FullName ../../SignOutput/ganwei-remotedesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
           sha256sum ../../SignOutput/ganwei-remotedesk-*.msi
 
+      - name: Upload Windows installers
+        if: env.UPLOAD_ARTIFACT == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ganwei-remotedesk-installers-windows-${{ matrix.job.arch }}
+          path: SignOutput
+
       - name: Sign rustdesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'
         shell: bash

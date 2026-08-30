@@ -66,6 +66,7 @@ REQUIRED = {
         "--app-name GanweiRemoteDesk",
         "GanweiRemoteDesk.app",
         "ganwei-remotedesk-${{ env.VERSION }}-${{ matrix.job.arch }}.deb",
+        "ganwei-remotedesk-installers-windows-${{ matrix.job.arch }}",
     ],
 }
 
