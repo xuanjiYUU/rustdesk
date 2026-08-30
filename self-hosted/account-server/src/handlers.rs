@@ -10,8 +10,8 @@ use crate::{
     db::BookKind,
     error::{ApiError, ApiResult},
     model::{
-        DeviceUpsertRequest, LoginRequest, LoginResponse, Page, PageQuery, PeerPayload,
-        PeerUpdate, RegisterRequest, RenameTagRequest, TagPayload, User, UserPayload,
+        DeviceUpsertRequest, LoginRequest, LoginResponse, Page, PageQuery, PeerPayload, PeerUpdate,
+        RegisterRequest, RenameTagRequest, TagPayload, User, UserPayload,
     },
     unix_time, AppState,
 };
@@ -173,17 +173,12 @@ pub async fn upsert_device(
     let (user, _) = authenticated(&state, &headers)?;
     let alias = request.alias.trim();
     validate_peer_id(&request.id)?;
-    if alias.is_empty()
-        || alias.len() > 128
-        || alias.chars().any(char::is_control)
-    {
+    if alias.is_empty() || alias.len() > 128 || alias.chars().any(char::is_control) {
         return Err(ApiError::bad_request(
             "Device alias must contain between 1 and 128 characters",
         ));
     }
-    if request.hostname.len() > 255
-        || request.platform.len() > 128
-        || request.username.len() > 128
+    if request.hostname.len() > 255 || request.platform.len() > 128 || request.username.len() > 128
     {
         return Err(ApiError::bad_request("Device metadata is too long"));
     }
