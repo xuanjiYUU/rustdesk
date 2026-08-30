@@ -10,8 +10,8 @@ use crate::{
     db::BookKind,
     error::{ApiError, ApiResult},
     model::{
-        LoginRequest, LoginResponse, Page, PageQuery, PeerPayload, PeerUpdate, RegisterRequest,
-        RenameTagRequest, TagPayload, User, UserPayload,
+        DeviceUpsertRequest, LoginRequest, LoginResponse, Page, PageQuery, PeerPayload,
+        PeerUpdate, RegisterRequest, RenameTagRequest, TagPayload, User, UserPayload,
     },
     unix_time, AppState,
 };
@@ -162,6 +162,86 @@ pub async fn current_user(
 pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<StatusCode> {
     let (_, token) = authenticated(&state, &headers)?;
     state.database.delete_session(&token).map_err(internal)?;
+    Ok(StatusCode::OK)
+}
+
+pub async fn upsert_device(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(request): Json<DeviceUpsertRequest>,
+) -> ApiResult<StatusCode> {
+    let (user, _) = authenticated(&state, &headers)?;
+    let alias = request.alias.trim();
+    validate_peer_id(&request.id)?;
+    if alias.is_empty()
+        || alias.len() > 128
+        || alias.chars().any(char::is_control)
+    {
+        return Err(ApiError::bad_request(
+            "Device alias must contain between 1 and 128 characters",
+        ));
+    }
+    if request.hostname.len() > 255
+        || request.platform.len() > 128
+        || request.username.len() > 128
+    {
+        return Err(ApiError::bad_request("Device metadata is too long"));
+    }
+    if request
+        .password
+        .as_ref()
+        .is_some_and(|value| value.len() > 256)
+    {
+        return Err(ApiError::bad_request("Device password is too long"));
+    }
+
+    let peer = PeerPayload {
+        id: request.id.clone(),
+        hash: String::new(),
+        password: request.password.clone().unwrap_or_default(),
+        username: request.username,
+        hostname: request.hostname,
+        platform: request.platform,
+        alias: alias.to_owned(),
+        tags: Vec::new(),
+        note: String::new(),
+        same_server: Some(true),
+    };
+    if state
+        .database
+        .peer_exists(crate::db::GLOBAL_BOOK_GUID, &request.id)
+        .map_err(internal)?
+    {
+        state
+            .database
+            .update_peer(
+                crate::db::GLOBAL_BOOK_GUID,
+                PeerUpdate {
+                    id: request.id,
+                    hash: None,
+                    password: request.password,
+                    username: Some(peer.username),
+                    hostname: Some(peer.hostname),
+                    platform: Some(peer.platform),
+                    alias: Some(peer.alias),
+                    tags: None,
+                    note: None,
+                },
+                &state.crypto,
+            )
+            .map_err(internal)?;
+    } else {
+        state
+            .database
+            .add_peer(
+                crate::db::GLOBAL_BOOK_GUID,
+                user.id,
+                &peer,
+                &peer.password,
+                &state.crypto,
+            )
+            .map_err(internal)?;
+    }
     Ok(StatusCode::OK)
 }
 

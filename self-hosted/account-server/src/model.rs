@@ -21,6 +21,20 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DeviceUpsertRequest {
+    pub id: String,
+    pub alias: String,
+    #[serde(default)]
+    pub hostname: String,
+    #[serde(default)]
+    pub platform: String,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub password: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct UserPayload {
     pub name: String,

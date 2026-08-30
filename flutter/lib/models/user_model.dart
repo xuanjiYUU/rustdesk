@@ -13,6 +13,7 @@ import 'model.dart';
 import 'platform_model.dart';
 
 bool refreshingUser = false;
+const kSelfHostedDeviceAliasOption = 'self-hosted-device-alias';
 
 class UserModel {
   final RxString userName = ''.obs;
@@ -48,6 +49,61 @@ class UserModel {
       //  For login success, should clear network error
       networkError.value = '';
     });
+  }
+
+  static String currentDeviceAlias() {
+    final saved =
+        bind.mainGetLocalOption(key: kSelfHostedDeviceAliasOption).trim();
+    if (saved.isNotEmpty) {
+      return saved;
+    }
+    try {
+      final info = jsonDecode(bind.mainGetLoginDeviceInfo());
+      return (info['name'] ?? '').toString().trim();
+    } catch (error) {
+      debugPrint('Failed to read local device name: $error');
+      return '';
+    }
+  }
+
+  static Future<void> setCurrentDeviceAlias(String alias) async {
+    await bind.mainSetLocalOption(
+        key: kSelfHostedDeviceAliasOption, value: alias.trim());
+  }
+
+  Future<void> syncCurrentDevice() async {
+    final token = bind.mainGetLocalOption(key: 'access_token');
+    final alias = currentDeviceAlias();
+    if (token.isEmpty || alias.isEmpty || isWeb) {
+      return;
+    }
+    try {
+      Map<String, dynamic> info = {};
+      try {
+        info = jsonDecode(bind.mainGetLoginDeviceInfo());
+      } catch (error) {
+        debugPrint('Failed to decode current device info: $error');
+      }
+      final url = await bind.mainGetApiServer();
+      final response = await http.post(Uri.parse('$url/api/device/upsert'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'id': await bind.mainGetMyId(),
+            'alias': alias,
+            'hostname': (info['name'] ?? '').toString(),
+            'platform': (info['os'] ?? '').toString(),
+          }));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw RequestException(response.statusCode,
+            decode_http_response(response));
+      }
+    } catch (error) {
+      // Device synchronization must not invalidate an otherwise valid login.
+      debugPrint('Failed to synchronize current device: $error');
+    }
   }
 
   void refreshCurrentUser() async {
@@ -98,6 +154,7 @@ class UserModel {
 
       final user = UserPayload.fromJson(data);
       _parseAndUpdateUser(user);
+      await syncCurrentDevice();
     } catch (e) {
       debugPrint('Failed to refreshCurrentUser: $e');
       // Surface failures in the address book / group tabs, which offer a
