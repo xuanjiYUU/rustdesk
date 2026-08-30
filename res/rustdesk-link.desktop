@@ -1,11 +1,11 @@
 [Desktop Entry]
 Name=感维科技remoteDesk
 NoDisplay=true
-MimeType=x-scheme-handler/rustdesk;
-TryExec=rustdesk
-Exec=rustdesk %u
-Icon=rustdesk
+MimeType=x-scheme-handler/ganweiremotedesk;
+TryExec=ganwei-remotedesk
+Exec=ganwei-remotedesk %u
+Icon=ganwei-remotedesk
 Terminal=false
 Type=Application
 StartupNotify=false
-StartupWMClass=rustdesk
+StartupWMClass=ganwei-remotedesk

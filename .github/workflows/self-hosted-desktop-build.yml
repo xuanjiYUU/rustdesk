@@ -8,7 +8,13 @@ on:
     paths:
       - ".github/workflows/self-hosted-desktop-build.yml"
       - ".github/workflows/flutter-build.yml"
+      - ".gitmodules"
+      - "build.py"
       - "Cargo.toml"
+      - "src/**"
+      - "libs/hbb_common/**"
+      - "libs/portable/**"
+      - "libs/scrap/**"
       - "flutter/lib/**"
       - "flutter/linux/**"
       - "flutter/macos/**"
@@ -16,12 +22,25 @@ on:
       - "flatpak/com.rustdesk.RustDesk.metainfo.xml"
       - "res/rustdesk.desktop"
       - "res/rustdesk-link.desktop"
+      - "res/rustdesk.service"
+      - "res/DEBIAN/**"
+      - "res/msi/**"
+      - "self-hosted/check-coexistence.py"
+      - "self-hosted/COEXISTENCE.md"
 
 permissions:
   contents: write
 
 jobs:
+  coexistence-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Verify private desktop identity
+        run: python3 self-hosted/check-coexistence.py
+
   build-desktop-clients:
+    needs: coexistence-check
     uses: ./.github/workflows/flutter-build.yml
     secrets: inherit
     with:

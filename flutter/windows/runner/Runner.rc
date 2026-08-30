@@ -92,9 +92,9 @@ BEGIN
             VALUE "CompanyName", "感维科技" "\0"
             VALUE "FileDescription", "感维科技remoteDesk" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "rustdesk" "\0"
+            VALUE "InternalName", "GanweiRemoteDesk" "\0"
             VALUE "LegalCopyright", "Copyright © 2026 感维科技. All rights reserved." "\0"
-            VALUE "OriginalFilename", "rustdesk.exe" "\0"
+            VALUE "OriginalFilename", "GanweiRemoteDesk.exe" "\0"
             VALUE "ProductName", "感维科技remoteDesk" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END

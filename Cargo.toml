@@ -220,7 +220,7 @@ libxdo-sys = { path = "libs/libxdo-sys-stub" }
 LegalCopyright = "Copyright © 2026 感维科技. All rights reserved."
 ProductName = "感维科技remoteDesk"
 FileDescription = "感维科技remoteDesk"
-OriginalFilename = "rustdesk.exe"
+OriginalFilename = "GanweiRemoteDesk.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"
@@ -236,8 +236,8 @@ hound = "3.5"
 docopt = "1.1"
 
 [package.metadata.bundle]
-name = "RustDesk"
-identifier = "com.carriez.rustdesk"
+name = "GanweiRemoteDesk"
+identifier = "com.ganweitech.remotedesk"
 icon = ["res/32x32.png", "res/128x128.png", "res/128x128@2x.png"]
 osx_minimum_system_version = "10.14"
 

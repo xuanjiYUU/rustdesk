@@ -5,11 +5,11 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = RustDesk
+PRODUCT_NAME = GanweiRemoteDesk
 PRODUCT_DISPLAY_NAME = 感维科技remoteDesk
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.carriez.flutterHbb
+PRODUCT_BUNDLE_IDENTIFIER = com.ganweitech.remotedesk
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 感维科技. All rights reserved.

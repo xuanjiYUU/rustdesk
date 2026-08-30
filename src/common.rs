@@ -2160,6 +2160,11 @@ fn apply_self_hosted_defaults() {
         keys::OPTION_ALLOW_INSECURE_TLS_FALLBACK.to_owned(),
         "N".to_owned(),
     );
+    settings.insert(
+        keys::OPTION_ENABLE_CHECK_UPDATE.to_owned(),
+        "N".to_owned(),
+    );
+    settings.insert(keys::OPTION_ALLOW_AUTO_UPDATE.to_owned(), "N".to_owned());
     drop(settings);
 
     config::BUILTIN_SETTINGS.write().unwrap().insert(

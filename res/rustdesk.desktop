@@ -2,18 +2,18 @@
 Name=感维科技remoteDesk
 GenericName=远程桌面
 Comment=感维科技远程桌面
-Exec=rustdesk %u
-Icon=rustdesk
+Exec=ganwei-remotedesk %u
+Icon=ganwei-remotedesk
 Terminal=false
 Type=Application
 StartupNotify=true
 Categories=Network;RemoteAccess;GTK;
 Keywords=internet;linux;dart;rust;remote-control;p2p;teamviewer;rust-lang;rdp;remote-desktop;vnc;
 Actions=new-window;
-StartupWMClass=rustdesk
+StartupWMClass=ganwei-remotedesk
 
 X-Desktop-File-Install-Version=0.23
 
 [Desktop Action new-window]
 Name=Open a New Window
-Exec=rustdesk %u
+Exec=ganwei-remotedesk %u
