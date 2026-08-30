@@ -370,10 +370,10 @@ Maintainer: Ganwei Technology
 Homepage: https://github.com/xuanjiYUU/rustdesk
 Depends: libgtk-3-0t64 | libgtk-3-0, libxcb-randr0, libxdo3 | libxdo4, libxfixes3, libxcb-shape0, libxcb-xfixes0, libasound2t64 | libasound2, libsystemd0, curl, libva2, libva-drm2, libva-x11-2, libgstreamer-plugins-base1.0-0, gstreamer1.0-pipewire%s
 Recommends: libayatana-appindicator3-1
-Description: 感维科技remoteDesk private remote control client.
+Description: Ganwei Technology private remote desktop client.
 
 """ % (version, get_deb_arch(), get_deb_extra_depends())
-    file = open(control_file_path, "w")
+    file = open(control_file_path, "w", encoding="utf-8")
     file.write(content)
     file.close()
 
@@ -680,7 +680,7 @@ def retarget_control_to_drm_variant():
     path = '../res/DEBIAN/control'
     floor = measured_glibc_floor()
     print(f'[drm] {DRM_PACKAGE_NAME} libc6 floor measured at {floor}')
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         lines = f.readlines()
     out = []
     for line in lines:
@@ -702,7 +702,7 @@ def retarget_control_to_drm_variant():
     # that stopped matching either anchor would otherwise produce a variant deb wearing the stock name.
     if f'Package: {DRM_PACKAGE_NAME}\n' not in body or 'libegl1' not in body:
         raise Exception(f'could not retarget {path} to the drm variant; upstream control layout changed')
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding="utf-8") as f:
         f.write(body)
 
 
