@@ -2141,10 +2141,26 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+const SELF_HOSTED_API_SERVER: &str = "https://223.105.144.22:21114";
+
+pub(crate) fn rendezvous_token_for_api_server(
+    access_token: String,
+    api_server: &str,
+) -> String {
+    // The private account API is paired with the open-source hbbs/hbbr server.
+    // Its bearer token authenticates HTTP account/address-book requests only;
+    // passing it to hbbs makes the client wait for the Pro KeyExchange flow and
+    // deadlocks the OSS rendezvous connection until READ_TIMEOUT expires.
+    if api_server.trim_end_matches('/') == SELF_HOSTED_API_SERVER {
+        String::new()
+    } else {
+        access_token
+    }
+}
+
 fn apply_self_hosted_defaults() {
     const ID_SERVER: &str = "223.105.144.22:21116";
     const RELAY_SERVER: &str = "223.105.144.22:21117";
-    const API_SERVER: &str = "https://223.105.144.22:21114";
     const SERVER_KEY: &str = "cshgJ2un1kNFYPSlnMYpimvUoxLMA1dlGaX6SkfxoEk=";
 
     *config::PROD_RENDEZVOUS_SERVER.write().unwrap() = ID_SERVER.to_owned();
@@ -2154,7 +2170,10 @@ fn apply_self_hosted_defaults() {
         ID_SERVER.to_owned(),
     );
     settings.insert(keys::OPTION_RELAY_SERVER.to_owned(), RELAY_SERVER.to_owned());
-    settings.insert(keys::OPTION_API_SERVER.to_owned(), API_SERVER.to_owned());
+    settings.insert(
+        keys::OPTION_API_SERVER.to_owned(),
+        SELF_HOSTED_API_SERVER.to_owned(),
+    );
     settings.insert(keys::OPTION_KEY.to_owned(), SERVER_KEY.to_owned());
     settings.insert(
         keys::OPTION_ALLOW_INSECURE_TLS_FALLBACK.to_owned(),
@@ -2795,6 +2814,35 @@ mod tests {
         for (id, expected) in cases {
             assert_eq!(is_valid_untrusted_peer_id(id), expected, "{id:?}");
         }
+    }
+
+    #[test]
+    fn self_hosted_account_token_is_not_sent_to_oss_rendezvous_server() {
+        assert_eq!(
+            rendezvous_token_for_api_server(
+                "account-bearer-token".to_owned(),
+                SELF_HOSTED_API_SERVER,
+            ),
+            ""
+        );
+        assert_eq!(
+            rendezvous_token_for_api_server(
+                "account-bearer-token".to_owned(),
+                &format!("{SELF_HOSTED_API_SERVER}/"),
+            ),
+            ""
+        );
+    }
+
+    #[test]
+    fn other_server_connection_token_is_preserved() {
+        assert_eq!(
+            rendezvous_token_for_api_server(
+                "pro-connection-token".to_owned(),
+                "https://example.com",
+            ),
+            "pro-connection-token"
+        );
     }
 
     // ThrottledInterval tick at the same time as tokio interval, if no sleeps
