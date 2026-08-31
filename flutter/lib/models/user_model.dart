@@ -14,6 +14,8 @@ import 'platform_model.dart';
 
 bool refreshingUser = false;
 const kSelfHostedDeviceAliasOption = 'self-hosted-device-alias';
+const kSelfHostedDeviceSharedOption = 'self-hosted-device-shared';
+const kSelfHostedDefaultConnectionPassword = 'Zdrive-2026';
 
 class UserModel {
   final RxString userName = ''.obs;
@@ -52,29 +54,54 @@ class UserModel {
   }
 
   static String currentDeviceAlias() {
-    final saved =
-        bind.mainGetLocalOption(key: kSelfHostedDeviceAliasOption).trim();
-    if (saved.isNotEmpty) {
-      return saved;
-    }
-    try {
-      final info = jsonDecode(bind.mainGetLoginDeviceInfo());
-      return (info['name'] ?? '').toString().trim();
-    } catch (error) {
-      debugPrint('Failed to read local device name: $error');
-      return '';
-    }
+    return bind
+        .mainGetLocalOption(key: kSelfHostedDeviceAliasOption)
+        .trim();
   }
+
+  static bool isCurrentDeviceShared() =>
+      bind.mainGetLocalOption(key: kSelfHostedDeviceSharedOption) == 'Y';
 
   static Future<void> setCurrentDeviceAlias(String alias) async {
     await bind.mainSetLocalOption(
         key: kSelfHostedDeviceAliasOption, value: alias.trim());
   }
 
-  Future<void> syncCurrentDevice() async {
+  Future<void> setCurrentDeviceSharing({
+    required String alias,
+    required bool shared,
+  }) async {
+    if (!isLogin) {
+      throw '请先登录账号';
+    }
+    await setCurrentDeviceAlias(alias);
+    if (shared) {
+      final passwordSet = await bind.mainSetPermanentPasswordWithResult(
+          password: kSelfHostedDefaultConnectionPassword);
+      if (!passwordSet) {
+        throw '设置默认连接密码失败';
+      }
+      await bind.mainSetLocalOption(
+          key: kSelfHostedDeviceSharedOption, value: 'Y');
+      try {
+        await syncCurrentDevice(throwOnError: true);
+      } catch (_) {
+        await bind.mainSetLocalOption(
+            key: kSelfHostedDeviceSharedOption, value: 'N');
+        rethrow;
+      }
+    } else {
+      await _unshareCurrentDevice();
+      await bind.mainSetLocalOption(
+          key: kSelfHostedDeviceSharedOption, value: 'N');
+    }
+    await gFFI.abModel.pullAb(
+        force: ForcePullAb.listAndCurrent, quiet: true);
+  }
+
+  Future<void> syncCurrentDevice({bool throwOnError = false}) async {
     final token = bind.mainGetLocalOption(key: 'access_token');
-    final alias = currentDeviceAlias();
-    if (token.isEmpty || alias.isEmpty || isWeb) {
+    if (token.isEmpty || !isCurrentDeviceShared() || isWeb) {
       return;
     }
     try {
@@ -92,9 +119,11 @@ class UserModel {
           },
           body: jsonEncode({
             'id': await bind.mainGetMyId(),
-            'alias': alias,
+            'alias': currentDeviceAlias(),
             'hostname': (info['name'] ?? '').toString(),
             'platform': (info['os'] ?? '').toString(),
+            'username': userName.value,
+            'password': kSelfHostedDefaultConnectionPassword,
           }));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw RequestException(response.statusCode,
@@ -103,6 +132,37 @@ class UserModel {
     } catch (error) {
       // Device synchronization must not invalidate an otherwise valid login.
       debugPrint('Failed to synchronize current device: $error');
+      if (throwOnError) {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> reconcileCurrentDeviceSharing() async {
+    try {
+      if (isCurrentDeviceShared()) {
+        await syncCurrentDevice();
+      } else {
+        await _unshareCurrentDevice();
+      }
+    } catch (error) {
+      // Sharing state must not invalidate an otherwise valid account session.
+      debugPrint('Failed to reconcile current device sharing: $error');
+    }
+  }
+
+  Future<void> _unshareCurrentDevice() async {
+    final token = bind.mainGetLocalOption(key: 'access_token');
+    if (token.isEmpty || isWeb) {
+      return;
+    }
+    final url = await bind.mainGetApiServer();
+    final id = await bind.mainGetMyId();
+    final response = await http.delete(Uri.parse('$url/api/device/$id'),
+        headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw RequestException(
+          response.statusCode, decode_http_response(response));
     }
   }
 
@@ -154,7 +214,6 @@ class UserModel {
 
       final user = UserPayload.fromJson(data);
       _parseAndUpdateUser(user);
-      await syncCurrentDevice();
     } catch (e) {
       debugPrint('Failed to refreshCurrentUser: $e');
       // Surface failures in the address book / group tabs, which offer a
@@ -218,6 +277,7 @@ class UserModel {
 
   // update ab and group status
   static Future<void> updateOtherModels() async {
+    await gFFI.userModel.reconcileCurrentDeviceSharing();
     await Future.wait([
       gFFI.abModel.pullAb(force: ForcePullAb.listAndCurrent, quiet: false),
       gFFI.groupModel.pull()

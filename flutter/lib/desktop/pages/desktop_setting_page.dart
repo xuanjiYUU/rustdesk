@@ -17,6 +17,7 @@ import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/printer_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
+import 'package:flutter_hbb/models/user_model.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -2112,6 +2113,25 @@ class _Account extends StatefulWidget {
 }
 
 class _AccountState extends State<_Account> {
+  late final TextEditingController _deviceAliasController;
+  late bool _deviceShared;
+  bool _savingDevice = false;
+  String? _deviceError;
+
+  @override
+  void initState() {
+    super.initState();
+    _deviceAliasController =
+        TextEditingController(text: UserModel.currentDeviceAlias());
+    _deviceShared = UserModel.isCurrentDeviceShared();
+  }
+
+  @override
+  void dispose() {
+    _deviceAliasController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final scrollController = ScrollController();
@@ -2119,6 +2139,7 @@ class _AccountState extends State<_Account> {
       controller: scrollController,
       children: [
         _Card(title: 'Account', children: [accountAction(), useInfo()]),
+        _Card(title: '本机设备', children: [deviceSharing()]),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
@@ -2184,6 +2205,84 @@ class _AccountState extends State<_Account> {
             }),
           ),
         )).marginOnly(left: 18, top: 16);
+  }
+
+  Widget deviceSharing() {
+    return Obx(() {
+      final loggedIn = gFFI.userModel.isLogin;
+      final fallback = gFFI.userModel.userName.value.trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _deviceAliasController,
+            enabled: loggedIn && !_savingDevice,
+            maxLength: 128,
+            decoration: InputDecoration(
+              labelText: '本机设备名称（可选）',
+              helperText: fallback.isEmpty
+                  ? '登录后可配置；留空时使用账号名'
+                  : '留空时在共享列表中显示账号名：$fallback',
+              prefixIcon: const Icon(Icons.computer),
+              errorText: _deviceError,
+            ),
+            onChanged: (_) {
+              if (_deviceError != null) {
+                setState(() => _deviceError = null);
+              }
+            },
+          ).workaroundFreezeLinuxMint(),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('分享本设备给其他客户端'),
+            subtitle: const Text(
+                '开启后，所有已登录账号都能在共享被控端列表中看到并连接本机'),
+            value: _deviceShared,
+            onChanged: loggedIn && !_savingDevice
+                ? (value) => _saveDevice(shared: value)
+                : null,
+          ),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: loggedIn && !_savingDevice
+                    ? () => _saveDevice(shared: _deviceShared)
+                    : null,
+                child: Text(_savingDevice ? '保存中…' : '保存本机设置'),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('默认连接密码：Zdrive-2026'),
+              ),
+            ],
+          ),
+        ],
+      ).marginOnly(left: _kContentHMargin);
+    });
+  }
+
+  Future<void> _saveDevice({required bool shared}) async {
+    if (_savingDevice) return;
+    setState(() {
+      _savingDevice = true;
+      _deviceError = null;
+    });
+    try {
+      await gFFI.userModel.setCurrentDeviceSharing(
+        alias: _deviceAliasController.text,
+        shared: shared,
+      );
+      if (!mounted) return;
+      setState(() => _deviceShared = shared);
+      showToast(shared ? '本设备已分享' : '本设备已取消分享');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _deviceError = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _savingDevice = false);
+      }
+    }
   }
 
   Widget? _buildUserAvatar() {

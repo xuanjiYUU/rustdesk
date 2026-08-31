@@ -121,6 +121,9 @@ class GroupModel {
             });
         final resp = await http.get(uri, headers: getHttpHeaders());
         _statusCode = resp.statusCode;
+        if (resp.statusCode == 404) {
+          return true;
+        }
         Map<String, dynamic> json =
             _jsonDecodeResp(decode_http_response(resp), resp.statusCode);
         if (json.containsKey('error')) {
@@ -179,6 +182,9 @@ class GroupModel {
             });
         final resp = await http.get(uri, headers: getHttpHeaders());
         _statusCode = resp.statusCode;
+        if (resp.statusCode == 404) {
+          return true;
+        }
         Map<String, dynamic> json =
             _jsonDecodeResp(decode_http_response(resp), resp.statusCode);
         if (json.containsKey('error')) {
@@ -244,6 +250,9 @@ class GroupModel {
             queryParameters: queryParameters);
         final resp = await http.get(uri, headers: getHttpHeaders());
         _statusCode = resp.statusCode;
+        if (resp.statusCode == 404) {
+          return true;
+        }
 
         Map<String, dynamic> json =
             _jsonDecodeResp(decode_http_response(resp), resp.statusCode);
@@ -288,7 +297,7 @@ class GroupModel {
     } catch (e) {
       final err = body.isNotEmpty && body.length < 128 ? body : e.toString();
       if (statusCode != 200) {
-        throw 'HTTP $statusCode, $err';
+        throw body.isEmpty ? 'HTTP $statusCode' : 'HTTP $statusCode, $err';
       }
       throw err;
     }

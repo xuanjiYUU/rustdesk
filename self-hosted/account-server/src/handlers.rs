@@ -16,6 +16,23 @@ use crate::{
     unix_time, AppState,
 };
 
+const DEFAULT_DEVICE_PASSWORD: &str = "Zdrive-2026";
+
+fn device_alias<'a>(requested: &'a str, username: &'a str) -> &'a str {
+    let requested = requested.trim();
+    if requested.is_empty() {
+        username
+    } else {
+        requested
+    }
+}
+
+fn device_password(requested: Option<&str>) -> &str {
+    requested
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_DEVICE_PASSWORD)
+}
+
 fn internal(error: impl std::fmt::Display) -> ApiError {
     ApiError::internal(error)
 }
@@ -171,11 +188,11 @@ pub async fn upsert_device(
     Json(request): Json<DeviceUpsertRequest>,
 ) -> ApiResult<StatusCode> {
     let (user, _) = authenticated(&state, &headers)?;
-    let alias = request.alias.trim();
+    let alias = device_alias(&request.alias, &user.username);
     validate_peer_id(&request.id)?;
-    if alias.is_empty() || alias.len() > 128 || alias.chars().any(char::is_control) {
+    if alias.len() > 128 || alias.chars().any(char::is_control) {
         return Err(ApiError::bad_request(
-            "Device alias must contain between 1 and 128 characters",
+            "Device alias must not exceed 128 characters or contain control characters",
         ));
     }
     if request.hostname.len() > 255 || request.platform.len() > 128 || request.username.len() > 128
@@ -190,11 +207,12 @@ pub async fn upsert_device(
         return Err(ApiError::bad_request("Device password is too long"));
     }
 
+    let password = device_password(request.password.as_deref()).to_owned();
     let peer = PeerPayload {
         id: request.id.clone(),
         hash: String::new(),
-        password: request.password.clone().unwrap_or_default(),
-        username: request.username,
+        password: password.clone(),
+        username: user.username.clone(),
         hostname: request.hostname,
         platform: request.platform,
         alias: alias.to_owned(),
@@ -214,7 +232,7 @@ pub async fn upsert_device(
                 PeerUpdate {
                     id: request.id,
                     hash: None,
-                    password: request.password,
+                    password: Some(password),
                     username: Some(peer.username),
                     hostname: Some(peer.hostname),
                     platform: Some(peer.platform),
@@ -238,6 +256,20 @@ pub async fn upsert_device(
             .map_err(internal)?;
     }
     Ok(StatusCode::OK)
+}
+
+pub async fn unshare_device(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> ApiResult<StatusCode> {
+    authenticated(&state, &headers)?;
+    validate_peer_id(&id)?;
+    state
+        .database
+        .delete_peers(crate::db::GLOBAL_BOOK_GUID, &[id])
+        .map_err(internal)?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn ab_settings(
@@ -426,4 +458,22 @@ pub async fn delete_tags(
         .delete_tags(&guid, &names)
         .map_err(internal)?;
     Ok(StatusCode::OK)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{device_alias, device_password, DEFAULT_DEVICE_PASSWORD};
+
+    #[test]
+    fn blank_device_alias_falls_back_to_account_username() {
+        assert_eq!(device_alias("   ", "alice"), "alice");
+        assert_eq!(device_alias(" Workstation ", "alice"), "Workstation");
+    }
+
+    #[test]
+    fn blank_device_password_uses_private_default() {
+        assert_eq!(device_password(None), DEFAULT_DEVICE_PASSWORD);
+        assert_eq!(device_password(Some("")), DEFAULT_DEVICE_PASSWORD);
+        assert_eq!(device_password(Some("custom")), "custom");
+    }
 }

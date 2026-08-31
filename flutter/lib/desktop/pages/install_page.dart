@@ -6,7 +6,6 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
-import 'package:flutter_hbb/models/user_model.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -64,8 +63,6 @@ class _InstallPageBody extends StatefulWidget {
 class _InstallPageBodyState extends State<_InstallPageBody>
     with WindowListener {
   late final TextEditingController controller;
-  late final TextEditingController deviceAliasController;
-  String? deviceAliasError;
   final RxBool startmenu = true.obs;
   final RxBool desktopicon = true.obs;
   final RxBool printer = false.obs;
@@ -80,8 +77,6 @@ class _InstallPageBodyState extends State<_InstallPageBody>
 
   _InstallPageBodyState() {
     controller = TextEditingController(text: bind.installInstallPath());
-    deviceAliasController =
-        TextEditingController(text: UserModel.currentDeviceAlias());
     final installOptions = jsonDecode(bind.installInstallOptions());
     startmenu.value = installOptions['STARTMENUSHORTCUTS'] != '0';
     desktopicon.value = installOptions['DESKTOPSHORTCUTS'] != '0';
@@ -98,7 +93,6 @@ class _InstallPageBodyState extends State<_InstallPageBody>
   void dispose() {
     windowManager.removeListener(this);
     controller.dispose();
-    deviceAliasController.dispose();
     super.dispose();
   }
 
@@ -168,21 +162,6 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                   )
                 ],
               ).marginSymmetric(vertical: 2 * em),
-              TextField(
-                controller: deviceAliasController,
-                enabled: btnEnabled.value,
-                decoration: InputDecoration(
-                  labelText: '本机备注名称',
-                  helperText: '安装并登录后，其他账号将在共享被控端列表中看到此名称',
-                  prefixIcon: const Icon(Icons.computer),
-                  errorText: deviceAliasError,
-                ),
-                onChanged: (_) {
-                  if (deviceAliasError != null) {
-                    setState(() => deviceAliasError = null);
-                  }
-                },
-              ).marginOnly(bottom: 2 * em),
               Option(startmenu, label: 'Create start menu shortcuts')
                   .marginOnly(bottom: 7),
               Option(desktopicon, label: 'Create desktop icon')
@@ -273,13 +252,6 @@ class _InstallPageBodyState extends State<_InstallPageBody>
   }
 
   Future<void> install() async {
-    final alias = deviceAliasController.text.trim();
-    if (alias.isEmpty) {
-      setState(() => deviceAliasError = '请输入本机备注名称');
-      return;
-    }
-    await UserModel.setCurrentDeviceAlias(alias);
-
     do_install() {
       btnEnabled.value = false;
       showProgress.value = true;

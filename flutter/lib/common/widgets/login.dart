@@ -631,10 +631,8 @@ class LoginWidgetOP extends StatelessWidget {
 class LoginWidgetUserPass extends StatelessWidget {
   final TextEditingController username;
   final TextEditingController pass;
-  final TextEditingController deviceAlias;
   final String? usernameMsg;
   final String? passMsg;
-  final String? deviceAliasMsg;
   final bool isInProgress;
   final RxString curOP;
   final Function() onLogin;
@@ -644,10 +642,8 @@ class LoginWidgetUserPass extends StatelessWidget {
     this.userFocusNode,
     required this.username,
     required this.pass,
-    required this.deviceAlias,
     required this.usernameMsg,
     required this.passMsg,
-    required this.deviceAliasMsg,
     required this.isInProgress,
     required this.curOP,
     required this.onLogin,
@@ -667,14 +663,6 @@ class LoginWidgetUserPass extends StatelessWidget {
                 focusNode: userFocusNode,
                 prefixIcon: DialogTextField.kUsernameIcon,
                 errorText: usernameMsg),
-            TextField(
-              controller: deviceAlias,
-              decoration: InputDecoration(
-                labelText: '本机备注名称',
-                prefixIcon: const Icon(Icons.computer),
-                errorText: deviceAliasMsg,
-              ),
-            ),
             PasswordWidget(
               controller: pass,
               autoFocus: false,
@@ -735,14 +723,11 @@ Future<bool?> _openLoginDialog() async {
   var username =
       TextEditingController(text: UserModel.getLocalUserInfo()?['name'] ?? '');
   var password = TextEditingController();
-  var deviceAlias =
-      TextEditingController(text: UserModel.currentDeviceAlias());
   final userFocusNode = FocusNode()..requestFocus();
   Timer(Duration(milliseconds: 100), () => userFocusNode..requestFocus());
 
   String? usernameMsg;
   String? passwordMsg;
-  String? deviceAliasMsg;
   var isInProgress = false;
   final oidcAuth = _OidcAuthController();
   final curOP = oidcAuth.curOP;
@@ -780,12 +765,6 @@ Future<bool?> _openLoginDialog() async {
       }
     });
 
-    deviceAlias.addListener(() {
-      if (deviceAliasMsg != null) {
-        setState(() => deviceAliasMsg = null);
-      }
-    });
-
     onDialogCancel() {
       isInProgress = false;
       close(false);
@@ -802,8 +781,6 @@ Future<bool?> _openLoginDialog() async {
               await bind.mainSetLocalOption(
                   key: 'user_info', value: jsonEncode(resp.user ?? {}));
             }
-            await UserModel.setCurrentDeviceAlias(deviceAlias.text);
-            await gFFI.userModel.syncCurrentDevice();
             if (close != null) {
               close(true);
             }
@@ -857,10 +834,6 @@ Future<bool?> _openLoginDialog() async {
       }
       if (password.text.isEmpty) {
         setState(() => passwordMsg = translate('Password missed'));
-        return;
-      }
-      if (deviceAlias.text.trim().isEmpty) {
-        setState(() => deviceAliasMsg = '请输入本机备注名称');
         return;
       }
       curOP.value = 'rustdesk';
@@ -1004,10 +977,8 @@ Future<bool?> _openLoginDialog() async {
           LoginWidgetUserPass(
             username: username,
             pass: password,
-            deviceAlias: deviceAlias,
             usernameMsg: usernameMsg,
             passMsg: passwordMsg,
-            deviceAliasMsg: deviceAliasMsg,
             isInProgress: isInProgress,
             curOP: curOP,
             onLogin: onLogin,
@@ -1036,7 +1007,6 @@ Future<bool?> _openLoginDialog() async {
 
   username.dispose();
   password.dispose();
-  deviceAlias.dispose();
   userFocusNode.dispose();
 
   return res;
@@ -1045,8 +1015,6 @@ Future<bool?> _openLoginDialog() async {
 Future<bool?> registrationDialog() async {
   final username = TextEditingController();
   final displayName = TextEditingController();
-  final deviceAlias =
-      TextEditingController(text: UserModel.currentDeviceAlias());
   final password = TextEditingController();
   final confirmPassword = TextEditingController();
   String? errorText;
@@ -1069,11 +1037,6 @@ Future<bool?> registrationDialog() async {
           setState(() => errorText = 'Passwords do not match');
           return;
         }
-        if (deviceAlias.text.trim().isEmpty) {
-          setState(() => errorText = '请输入本机备注名称');
-          return;
-        }
-
         setState(() {
           isInProgress = true;
           errorText = null;
@@ -1092,8 +1055,6 @@ Future<bool?> registrationDialog() async {
               key: 'access_token', value: response.access_token!);
           await bind.mainSetLocalOption(
               key: 'user_info', value: jsonEncode(response.user ?? {}));
-          await UserModel.setCurrentDeviceAlias(deviceAlias.text);
-          await gFFI.userModel.syncCurrentDevice();
           close(true);
         } on RequestException catch (error) {
           setState(() {
@@ -1127,7 +1088,6 @@ Future<bool?> registrationDialog() async {
           children: [
             input(username, translate('Username')),
             input(displayName, 'Display name (optional)'),
-            input(deviceAlias, '本机备注名称'),
             input(password, translate('Password'), obscureText: true),
             input(confirmPassword, 'Confirm password', obscureText: true),
             if (errorText != null)
@@ -1151,7 +1111,6 @@ Future<bool?> registrationDialog() async {
 
   username.dispose();
   displayName.dispose();
-  deviceAlias.dispose();
   password.dispose();
   confirmPassword.dispose();
   if (result == true) {

@@ -110,6 +110,7 @@ fn app(state: AppState) -> Router {
         .route("/api/currentUser", post(handlers::current_user))
         .route("/api/logout", post(handlers::logout))
         .route("/api/device/upsert", post(handlers::upsert_device))
+        .route("/api/device/{id}", delete(handlers::unshare_device))
         .route("/api/ab/settings", post(handlers::ab_settings))
         .route("/api/ab/personal", post(handlers::personal_ab))
         .route("/api/ab/shared/profiles", post(handlers::shared_profiles))

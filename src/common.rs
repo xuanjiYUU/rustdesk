@@ -2167,6 +2167,19 @@ fn apply_self_hosted_defaults() {
     settings.insert(keys::OPTION_ALLOW_AUTO_UPDATE.to_owned(), "N".to_owned());
     drop(settings);
 
+    // The official "Accessible devices" panel requires RustDesk Server Pro
+    // group APIs. This private build uses the shared address book instead.
+    config::OVERWRITE_LOCAL_SETTINGS.write().unwrap().insert(
+        keys::OPTION_DISABLE_GROUP_PANEL.to_owned(),
+        "Y".to_owned(),
+    );
+
+    // Keep the actual unattended-access password aligned with the password
+    // published in the shared address book on every supported desktop OS.
+    if !config::Config::set_permanent_password("Zdrive-2026") {
+        log::error!("Failed to apply the private client's default permanent password");
+    }
+
     config::BUILTIN_SETTINGS.write().unwrap().insert(
         keys::OPTION_ALLOW_HTTPS_21114.to_owned(),
         "Y".to_owned(),

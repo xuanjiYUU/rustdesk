@@ -85,11 +85,21 @@ class AbModel {
         loadEvent: LoadEvent.addressBook);
     if (desktopType == DesktopType.main) {
       Timer.periodic(Duration(milliseconds: 500), (timer) async {
-        if (_timerCounter++ % 6 == 0) {
+        final tick = _timerCounter++;
+        if (tick % 6 == 0) {
           if (!gFFI.userModel.isLogin) return;
           if (!listInitialized) return;
           if (!current.initialized || !current.canWrite()) return;
           _syncFromRecent();
+        }
+        // Keep the open shared-device list fresh so a device appears shortly
+        // after another client enables sharing, without requiring re-login.
+        if (tick % 10 == 0 &&
+            gFFI.userModel.isLogin &&
+            gFFI.peerTabModel.currentTab == 3 &&
+            listInitialized &&
+            current.initialized) {
+          await pullAb(force: ForcePullAb.current, quiet: true);
         }
       });
     }
