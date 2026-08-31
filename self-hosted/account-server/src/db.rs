@@ -14,6 +14,29 @@ use crate::{
 };
 
 pub const GLOBAL_BOOK_GUID: &str = "global-shared-devices";
+const SYSTEM_DEVICE_OWNER_USERNAME: &str = "__system_device_share__";
+
+fn ensure_device_share_schema(connection: &Connection) -> Result<()> {
+    let has_device_token_hash = {
+        let mut statement = connection.prepare("PRAGMA table_info(peers)")?;
+        let columns = statement.query_map([], |row| row.get::<_, String>(1))?;
+        let mut found = false;
+        for column in columns {
+            if column? == "device_token_hash" {
+                found = true;
+                break;
+            }
+        }
+        found
+    };
+    if !has_device_token_hash {
+        connection.execute(
+            "ALTER TABLE peers ADD COLUMN device_token_hash TEXT NOT NULL DEFAULT ''",
+            [],
+        )?;
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BookKind {
@@ -36,6 +59,12 @@ impl Database {
         connection
             .execute_batch(include_str!("../migrations/0001_init.sql"))
             .context("database migration failed")?;
+        ensure_device_share_schema(&connection).context("device share migration failed")?;
+        connection.execute(
+            "INSERT OR IGNORE INTO users(username, display_name, password_hash, created_at)
+             VALUES (?1, '', '!', ?2)",
+            params![SYSTEM_DEVICE_OWNER_USERNAME, unix_time()],
+        )?;
         connection.execute(
             "INSERT OR IGNORE INTO address_books(guid, name, owner_user_id, kind, created_at)
              VALUES (?1, ?2, NULL, 'global', ?3)",
@@ -67,6 +96,17 @@ impl Database {
             .optional()?
             .is_some();
         Ok(found)
+    }
+
+    pub fn system_device_owner_id(&self) -> Result<i64> {
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                "SELECT id FROM users WHERE username = ?1",
+                [SYSTEM_DEVICE_OWNER_USERNAME],
+                |row| row.get(0),
+            )
+            .map_err(Into::into)
     }
 
     pub fn create_user(
@@ -276,20 +316,50 @@ impl Database {
             .is_some())
     }
 
+    pub fn peer_device_token_hash(&self, guid: &str, peer_id: &str) -> Result<Option<String>> {
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                "SELECT device_token_hash FROM peers
+                 WHERE address_book_guid = ?1 AND peer_id = ?2",
+                params![guid, peer_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn set_peer_device_token_hash(
+        &self,
+        guid: &str,
+        peer_id: &str,
+        device_token_hash: &str,
+    ) -> Result<()> {
+        let connection = self.connection()?;
+        connection.execute(
+            "UPDATE peers SET device_token_hash = ?3, updated_at = ?4
+             WHERE address_book_guid = ?1 AND peer_id = ?2",
+            params![guid, peer_id, device_token_hash, unix_time()],
+        )?;
+        Ok(())
+    }
+
     pub fn add_peer(
         &self,
         guid: &str,
         user_id: i64,
         peer: &PeerPayload,
         password: &str,
+        device_token_hash: &str,
         crypto: &Crypto,
     ) -> Result<()> {
         let connection = self.connection()?;
         connection.execute(
             "INSERT INTO peers(
                 address_book_guid, peer_id, hash, encrypted_password, username,
-                hostname, platform, alias, tags_json, note, created_by, updated_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                hostname, platform, alias, tags_json, note, device_token_hash,
+                created_by, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 guid,
                 peer.id,
@@ -301,6 +371,7 @@ impl Database {
                 peer.alias,
                 serde_json::to_string(&peer.tags)?,
                 peer.note,
+                device_token_hash,
                 user_id,
                 unix_time(),
             ],

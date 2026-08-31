@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS peers (
     alias TEXT NOT NULL DEFAULT '',
     tags_json TEXT NOT NULL DEFAULT '[]',
     note TEXT NOT NULL DEFAULT '',
+    device_token_hash TEXT NOT NULL DEFAULT '',
     created_by INTEGER NOT NULL REFERENCES users(id),
     updated_at INTEGER NOT NULL,
     PRIMARY KEY(address_book_guid, peer_id)

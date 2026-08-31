@@ -2209,19 +2209,18 @@ class _AccountState extends State<_Account> {
 
   Widget deviceSharing() {
     return Obx(() {
-      final loggedIn = gFFI.userModel.isLogin;
       final fallback = gFFI.userModel.userName.value.trim();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TextField(
             controller: _deviceAliasController,
-            enabled: loggedIn && !_savingDevice,
+            enabled: !_savingDevice,
             maxLength: 128,
             decoration: InputDecoration(
               labelText: '本机设备名称（可选）',
               helperText: fallback.isEmpty
-                  ? '登录后可配置；留空时使用账号名'
+                  ? '无需登录即可分享；留空时暂用本机名称，登录后改为账号名'
                   : '留空时在共享列表中显示账号名：$fallback',
               prefixIcon: const Icon(Icons.computer),
               errorText: _deviceError,
@@ -2238,14 +2237,14 @@ class _AccountState extends State<_Account> {
             subtitle: const Text(
                 '开启后，所有已登录账号都能在共享被控端列表中看到并连接本机'),
             value: _deviceShared,
-            onChanged: loggedIn && !_savingDevice
+            onChanged: !_savingDevice
                 ? (value) => _saveDevice(shared: value)
                 : null,
           ),
           Row(
             children: [
               ElevatedButton(
-                onPressed: loggedIn && !_savingDevice
+                onPressed: !_savingDevice
                     ? () => _saveDevice(shared: _deviceShared)
                     : null,
                 child: Text(_savingDevice ? '保存中…' : '保存本机设置'),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'platform_model.dart';
 bool refreshingUser = false;
 const kSelfHostedDeviceAliasOption = 'self-hosted-device-alias';
 const kSelfHostedDeviceSharedOption = 'self-hosted-device-shared';
+const kSelfHostedDeviceShareTokenOption = 'self-hosted-device-share-token';
 const kSelfHostedDefaultConnectionPassword = 'Zdrive-2026';
 
 class UserModel {
@@ -67,13 +69,25 @@ class UserModel {
         key: kSelfHostedDeviceAliasOption, value: alias.trim());
   }
 
+  static Future<String> currentDeviceShareToken() async {
+    var token = bind
+        .mainGetLocalOption(key: kSelfHostedDeviceShareTokenOption)
+        .trim();
+    if (token.isNotEmpty) {
+      return token;
+    }
+    final random = Random.secure();
+    token = base64Url.encode(
+        List<int>.generate(32, (_) => random.nextInt(256)));
+    await bind.mainSetLocalOption(
+        key: kSelfHostedDeviceShareTokenOption, value: token);
+    return token;
+  }
+
   Future<void> setCurrentDeviceSharing({
     required String alias,
     required bool shared,
   }) async {
-    if (!isLogin) {
-      throw '请先登录账号';
-    }
     await setCurrentDeviceAlias(alias);
     if (shared) {
       final passwordSet = await bind.mainSetPermanentPasswordWithResult(
@@ -95,13 +109,15 @@ class UserModel {
       await bind.mainSetLocalOption(
           key: kSelfHostedDeviceSharedOption, value: 'N');
     }
-    await gFFI.abModel.pullAb(
-        force: ForcePullAb.listAndCurrent, quiet: true);
+    if (isLogin) {
+      await gFFI.abModel.pullAb(
+          force: ForcePullAb.listAndCurrent, quiet: true);
+    }
   }
 
   Future<void> syncCurrentDevice({bool throwOnError = false}) async {
     final token = bind.mainGetLocalOption(key: 'access_token');
-    if (token.isEmpty || !isCurrentDeviceShared() || isWeb) {
+    if (!isCurrentDeviceShared() || isWeb) {
       return;
     }
     try {
@@ -112,11 +128,14 @@ class UserModel {
         debugPrint('Failed to decode current device info: $error');
       }
       final url = await bind.mainGetApiServer();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      if (isLogin && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
       final response = await http.post(Uri.parse('$url/api/device/upsert'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
+          headers: headers,
           body: jsonEncode({
             'id': await bind.mainGetMyId(),
             'alias': currentDeviceAlias(),
@@ -124,6 +143,7 @@ class UserModel {
             'platform': (info['os'] ?? '').toString(),
             'username': userName.value,
             'password': kSelfHostedDefaultConnectionPassword,
+            'share_token': await currentDeviceShareToken(),
           }));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw RequestException(response.statusCode,
@@ -152,14 +172,20 @@ class UserModel {
   }
 
   Future<void> _unshareCurrentDevice() async {
-    final token = bind.mainGetLocalOption(key: 'access_token');
-    if (token.isEmpty || isWeb) {
+    if (isWeb) {
       return;
     }
+    final token = bind.mainGetLocalOption(key: 'access_token');
     final url = await bind.mainGetApiServer();
     final id = await bind.mainGetMyId();
+    final headers = <String, String>{
+      'X-Device-Share-Token': await currentDeviceShareToken(),
+    };
+    if (isLogin && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
     final response = await http.delete(Uri.parse('$url/api/device/$id'),
-        headers: {'Authorization': 'Bearer $token'});
+        headers: headers);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw RequestException(
           response.statusCode, decode_http_response(response));

@@ -20,10 +20,13 @@ authenticated client.
 
 Desktop clients configure their device name and sharing state independently in
 `Settings > Account > Local device`; installation, registration, and sign-in do
-not ask for an alias. Enabling sharing calls `POST /api/device/upsert`, while
-disabling it removes the device from the global address book. A blank device
-name is displayed as the authenticated account username. Shared devices use
-the default unattended-access password `Zdrive-2026`.
+not ask for an alias. Sharing and unsharing the local device do not require an
+account login; each installation uses a private device token to protect those
+updates. Login is required to view the shared-device list and its passwords.
+Enabling sharing calls `POST /api/device/upsert`, while disabling it removes the
+device from the global address book. A blank device name is displayed as the
+authenticated account username, or as the local hostname until the device signs
+in. Shared devices use the default unattended-access password `Zdrive-2026`.
 
 The public private-CA certificate is bundled at
 `flutter/assets/self_hosted_ca.pem`. The CA private key and server private key

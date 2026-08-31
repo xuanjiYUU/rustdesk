@@ -6,7 +6,7 @@ use axum::{
 use serde_json::{json, Value};
 
 use crate::{
-    crypto::{hash_password, new_session_token, verify_password},
+    crypto::{hash_password, new_session_token, token_hash, verify_password},
     db::BookKind,
     error::{ApiError, ApiResult},
     model::{
@@ -17,14 +17,21 @@ use crate::{
 };
 
 const DEFAULT_DEVICE_PASSWORD: &str = "Zdrive-2026";
+const DEVICE_SHARE_TOKEN_HEADER: &str = "x-device-share-token";
 
-fn device_alias<'a>(requested: &'a str, username: &'a str) -> &'a str {
+fn device_alias(requested: &str, username: Option<&str>, hostname: &str, peer_id: &str) -> String {
     let requested = requested.trim();
-    if requested.is_empty() {
-        username
-    } else {
-        requested
+    if !requested.is_empty() {
+        return requested.to_owned();
     }
+    if let Some(username) = username.map(str::trim).filter(|value| !value.is_empty()) {
+        return username.to_owned();
+    }
+    let hostname = hostname.trim();
+    if !hostname.is_empty() {
+        return hostname.to_owned();
+    }
+    peer_id.to_owned()
 }
 
 fn device_password(requested: Option<&str>) -> &str {
@@ -57,6 +64,30 @@ fn authenticated(state: &AppState, headers: &HeaderMap) -> ApiResult<(User, Stri
         .map_err(internal)?
         .ok_or_else(|| ApiError::unauthorized("Session expired or invalid"))?;
     Ok((user, token.to_owned()))
+}
+
+fn optional_authenticated(state: &AppState, headers: &HeaderMap) -> ApiResult<Option<User>> {
+    if headers.get(AUTHORIZATION).is_none() {
+        return Ok(None);
+    }
+    authenticated(state, headers).map(|(user, _)| Some(user))
+}
+
+fn validate_device_share_token(token: &str) -> ApiResult<()> {
+    if !(32..=256).contains(&token.len()) || token.chars().any(char::is_control) {
+        return Err(ApiError::bad_request("Invalid device share token"));
+    }
+    Ok(())
+}
+
+fn device_share_token(headers: &HeaderMap) -> ApiResult<&str> {
+    let token = headers
+        .get(DEVICE_SHARE_TOKEN_HEADER)
+        .ok_or_else(|| ApiError::unauthorized("Missing device share token"))?
+        .to_str()
+        .map_err(|_| ApiError::unauthorized("Invalid device share token"))?;
+    validate_device_share_token(token)?;
+    Ok(token)
 }
 
 fn validate_username(username: &str) -> ApiResult<()> {
@@ -187,9 +218,15 @@ pub async fn upsert_device(
     headers: HeaderMap,
     Json(request): Json<DeviceUpsertRequest>,
 ) -> ApiResult<StatusCode> {
-    let (user, _) = authenticated(&state, &headers)?;
-    let alias = device_alias(&request.alias, &user.username);
+    let user = optional_authenticated(&state, &headers)?;
     validate_peer_id(&request.id)?;
+    validate_device_share_token(&request.share_token)?;
+    let alias = device_alias(
+        &request.alias,
+        user.as_ref().map(|user| user.username.as_str()),
+        &request.hostname,
+        &request.id,
+    );
     if alias.len() > 128 || alias.chars().any(char::is_control) {
         return Err(ApiError::bad_request(
             "Device alias must not exceed 128 characters or contain control characters",
@@ -208,29 +245,37 @@ pub async fn upsert_device(
     }
 
     let password = device_password(request.password.as_deref()).to_owned();
+    let peer_username = user
+        .as_ref()
+        .map(|user| user.username.clone())
+        .unwrap_or_else(|| request.username.trim().to_owned());
+    let device_token_hash = token_hash(&request.share_token);
     let peer = PeerPayload {
         id: request.id.clone(),
         hash: String::new(),
         password: password.clone(),
-        username: user.username.clone(),
+        username: peer_username,
         hostname: request.hostname,
         platform: request.platform,
-        alias: alias.to_owned(),
+        alias,
         tags: Vec::new(),
         note: String::new(),
         same_server: Some(true),
     };
-    if state
+    if let Some(stored_device_token_hash) = state
         .database
-        .peer_exists(crate::db::GLOBAL_BOOK_GUID, &request.id)
+        .peer_device_token_hash(crate::db::GLOBAL_BOOK_GUID, &request.id)
         .map_err(internal)?
     {
+        if !stored_device_token_hash.is_empty() && stored_device_token_hash != device_token_hash {
+            return Err(ApiError::unauthorized("Device share token does not match"));
+        }
         state
             .database
             .update_peer(
                 crate::db::GLOBAL_BOOK_GUID,
                 PeerUpdate {
-                    id: request.id,
+                    id: request.id.clone(),
                     hash: None,
                     password: Some(password),
                     username: Some(peer.username),
@@ -243,14 +288,29 @@ pub async fn upsert_device(
                 &state.crypto,
             )
             .map_err(internal)?;
+        if stored_device_token_hash.is_empty() {
+            state
+                .database
+                .set_peer_device_token_hash(
+                    crate::db::GLOBAL_BOOK_GUID,
+                    &request.id,
+                    &device_token_hash,
+                )
+                .map_err(internal)?;
+        }
     } else {
+        let owner_user_id = match user {
+            Some(user) => user.id,
+            None => state.database.system_device_owner_id().map_err(internal)?,
+        };
         state
             .database
             .add_peer(
                 crate::db::GLOBAL_BOOK_GUID,
-                user.id,
+                owner_user_id,
                 &peer,
                 &peer.password,
+                &device_token_hash,
                 &state.crypto,
             )
             .map_err(internal)?;
@@ -263,8 +323,20 @@ pub async fn unshare_device(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> ApiResult<StatusCode> {
-    authenticated(&state, &headers)?;
     validate_peer_id(&id)?;
+    let requested_device_token_hash = token_hash(device_share_token(&headers)?);
+    let Some(stored_device_token_hash) = state
+        .database
+        .peer_device_token_hash(crate::db::GLOBAL_BOOK_GUID, &id)
+        .map_err(internal)?
+    else {
+        return Ok(StatusCode::NO_CONTENT);
+    };
+    if stored_device_token_hash.is_empty()
+        || stored_device_token_hash != requested_device_token_hash
+    {
+        return Err(ApiError::unauthorized("Device share token does not match"));
+    }
     state
         .database
         .delete_peers(crate::db::GLOBAL_BOOK_GUID, &[id])
@@ -348,7 +420,7 @@ pub async fn add_peer(
     };
     state
         .database
-        .add_peer(&guid, user.id, &peer, &password, &state.crypto)
+        .add_peer(&guid, user.id, &peer, &password, "", &state.crypto)
         .map_err(internal)?;
     Ok(StatusCode::OK)
 }
@@ -462,12 +534,19 @@ pub async fn delete_tags(
 
 #[cfg(test)]
 mod tests {
-    use super::{device_alias, device_password, DEFAULT_DEVICE_PASSWORD};
+    use super::{
+        device_alias, device_password, validate_device_share_token, DEFAULT_DEVICE_PASSWORD,
+    };
 
     #[test]
-    fn blank_device_alias_falls_back_to_account_username() {
-        assert_eq!(device_alias("   ", "alice"), "alice");
-        assert_eq!(device_alias(" Workstation ", "alice"), "Workstation");
+    fn device_alias_uses_requested_name_then_account_then_hostname() {
+        assert_eq!(
+            device_alias(" Workstation ", Some("alice"), "host-a", "123"),
+            "Workstation"
+        );
+        assert_eq!(device_alias("   ", Some("alice"), "host-a", "123"), "alice");
+        assert_eq!(device_alias("", None, "host-a", "123"), "host-a");
+        assert_eq!(device_alias("", None, "", "123"), "123");
     }
 
     #[test]
@@ -475,5 +554,12 @@ mod tests {
         assert_eq!(device_password(None), DEFAULT_DEVICE_PASSWORD);
         assert_eq!(device_password(Some("")), DEFAULT_DEVICE_PASSWORD);
         assert_eq!(device_password(Some("custom")), "custom");
+    }
+
+    #[test]
+    fn device_share_token_requires_sufficient_entropy() {
+        assert!(validate_device_share_token(&"a".repeat(32)).is_ok());
+        assert!(validate_device_share_token("short").is_err());
+        assert!(validate_device_share_token(&format!("{}\n", "a".repeat(32))).is_err());
     }
 }

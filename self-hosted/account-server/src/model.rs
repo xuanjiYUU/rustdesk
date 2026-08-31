@@ -33,6 +33,7 @@ pub struct DeviceUpsertRequest {
     pub username: String,
     #[serde(default)]
     pub password: Option<String>,
+    pub share_token: String,
 }
 
 #[derive(Debug, Serialize)]
