@@ -923,6 +923,12 @@ def build_flutter_dmg(version, features):
         'cp -rf ../target/release/service '
         './build/macos/Build/Products/Release/GanweiRemoteDesk.app/Contents/MacOS/'
     )
+    # Flutter signs the app before the RustDesk service is copied into the bundle.
+    # Re-sign the complete unsigned bundle afterwards so hardened-runtime library
+    # validation does not reject the ad-hoc signed Flutter frameworks at launch.
+    app_path = './build/macos/Build/Products/Release/GanweiRemoteDesk.app'
+    system2(f'codesign --force --deep --sign - "{app_path}"')
+    system2(f'codesign --verify --deep --strict --verbose=2 "{app_path}"')
     '''
     system2(
         "create-dmg --volname \"RustDesk Installer\" --window-pos 200 120 --window-size 800 400 --icon-size 100 --app-drop-link 600 185 --icon RustDesk.app 200 190 --hide-extension RustDesk.app rustdesk.dmg ./build/macos/Build/Products/Release/RustDesk.app")
